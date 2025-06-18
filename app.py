@@ -8,6 +8,7 @@ from linebot.v3.messaging import (
 from linebot.v3.webhooks import MessageEvent, TextMessageContent
 from reminder import scheduler
 from models import db, Task
+from reminder import create_scheduler
 
 # LINE credentials
 CHANNEL_SECRET = os.environ.get("CHANNEL_SECRET")
@@ -19,6 +20,7 @@ if not CHANNEL_SECRET or not CHANNEL_ACCESS_TOKEN:
 
 # Flask app
 app = Flask(__name__)
+create_scheduler(app)
 app.config["SQLALCHEMY_DATABASE_URI"] = DATABASE_URL
 app.config["SQLALCHEMY_TRACK_MODIFICATIONS"] = False
 db.init_app(app)
