@@ -1,6 +1,6 @@
 from flask import Flask, request, abort
 from models import db, Task
-from reminder import scheduler
+from reminder import start_scheduler
 from linebot.v3 import WebhookHandler
 from linebot.v3.webhooks import MessageEvent
 from linebot.v3.webhooks import TextMessageContent
@@ -94,7 +94,7 @@ def handle_message(event):
 
 
 if __name__ == "__main__":
-    scheduler.start()
+    start_scheduler()
     app.run(host="0.0.0.0", port=10000)
 
 
