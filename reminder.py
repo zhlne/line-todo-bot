@@ -1,44 +1,43 @@
-# reminder.py
 from apscheduler.schedulers.background import BackgroundScheduler
-from linebot.v3.messaging import MessagingApi, Configuration, PushMessageRequest, TextMessage
-from datetime import datetime, timedelta
 from models import db, Task
+from datetime import datetime, timedelta
+from linebot.v3.messaging import MessagingApi, Configuration, ApiClient
+from linebot.v3.messaging.models import TextMessage, PushMessageRequest
 import os
 
-# 初始化 LINE Bot API
-configuration = Configuration(access_token=os.environ.get("CHANNEL_ACCESS_TOKEN"))
-line_bot_api = MessagingApi(configuration)
+# === 初始化 LINE Messaging API ===
+channel_access_token = os.getenv("CHANNEL_ACCESS_TOKEN")
+configuration = Configuration(access_token=channel_access_token)
+line_bot_api = MessagingApi(ApiClient(configuration))
 
+# === 初始化排程器 ===
+scheduler = BackgroundScheduler()
+
+# === 檢查提醒任務 ===
 def check_reminders():
-    now = datetime.utcnow() + timedelta(hours=8)  # ➜ 台灣時間
+    now = datetime.utcnow() + timedelta(hours=8)  # 台灣時區
     now_str = now.strftime("%H:%M")
-
     print(f"[Scheduler] 現在時間是 {now_str}，正在檢查提醒...")
 
-    with db.session.begin():
-        tasks = db.session.query(Task).filter(Task.time == now_str).all()
+    print("【資料庫中全部提醒】")
+    tasks = Task.query.all()
+    for t in tasks:
+        print(f"📝 {t.time} | {t.content} | {t.user_id}")
 
-    if tasks:
-        for task in tasks:
-            try:
-                message = f"⏰ 提醒你：{task.time} {task.content}"
-                line_bot_api.push_message(
-                    PushMessageRequest(
-                        to=task.user_id,
-                        messages=[TextMessage(text=message)]
-                    )
-                )
-                print(f"[Scheduler] 已推播提醒給 {task.user_id}：{message}")
-            except Exception as e:
-                print(f"[Scheduler] ❌ 推播失敗：{str(e)}")
-    else:
-        print("[Scheduler] 沒有符合時間的提醒")
+    due_tasks = Task.query.filter_by(time=now_str).all()
+    for task in due_tasks:
+        try:
+            message = TextMessage(text=f"⏰ 提醒你：{task.time} {task.content}")
+            line_bot_api.push_message(PushMessageRequest(to=task.user_id, messages=[message]))
+            print(f"[Scheduler] 已推播提醒給 {task.user_id}：{task.time} {task.content}")
+        except Exception as e:
+            print(f"[Scheduler] ❌ 推播失敗：{str(e)}")
 
-# 啟動排程器
+# === 啟動排程器 ===
 def start_scheduler():
-    scheduler = BackgroundScheduler()
     scheduler.add_job(check_reminders, 'interval', minutes=1)
     scheduler.start()
     print("[✅ APScheduler 啟動中]")
+
 
 
