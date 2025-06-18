@@ -1,23 +1,37 @@
 from apscheduler.schedulers.background import BackgroundScheduler
 from datetime import datetime
 from models import db, Task
-from linebot.v3.messaging import Configuration, MessagingApi, TextMessage, ReplyMessageRequest
+from linebot.v3.messaging import MessagingApi, Configuration, ApiClient, TextMessage, PushMessageRequest
 import os
 
-scheduler = BackgroundScheduler()
+# 初始化 LINE Bot
+channel_access_token = os.getenv("CHANNEL_ACCESS_TOKEN")
+if not channel_access_token:
+    raise ValueError("❌ 請設定 CHANNEL_ACCESS_TOKEN 環境變數")
 
-def check_reminders():
+configuration = Configuration(access_token=channel_access_token)
+line_bot_api = MessagingApi(ApiClient(configuration))
+
+def send_reminders():
     now = datetime.now().strftime("%H:%M")
-    tasks = Task.query.filter_by(time=now).all()
-    for task in tasks:
-        try:
-            configuration = Configuration(access_token=os.getenv("CHANNEL_ACCESS_TOKEN"))
-            with MessagingApi(configuration) as api:
-                message = TextMessage(text=f"⏰ 提醒你：{task.content}")
-                api.push_message(to=task.user_id, messages=[message])
-                print(f"[提醒發送] {task.user_id}: {task.content}")
-        except Exception as e:
-            print(f"[提醒錯誤] 無法發送給 {task.user_id}：{str(e)}")
+    print(f"[Scheduler] 現在時間是 {now}，正在檢查提醒...")
 
-scheduler.add_job(check_reminders, 'cron', minute='*')
+    with db.engine.connect() as conn:
+        with conn.begin():
+            result = conn.execute(db.select(Task).filter_by(time=now))
+            tasks = result.scalars().all()
+
+    for task in tasks:
+        line_bot_api.push_message(
+            PushMessageRequest(
+                to=task.user_id,
+                messages=[TextMessage(text=f"⏰ 提醒事項：{task.content}")]
+            )
+        )
+        print(f"[🔔 已發送] {task.user_id}：{task.content}")
+
+scheduler = BackgroundScheduler(timezone="Asia/Taipei")
+scheduler.add_job(send_reminders, "cron", minute="*")
+
+
 

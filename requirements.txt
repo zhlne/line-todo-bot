@@ -1,7 +1,8 @@
-psycopg2-binary
 pytz
-Flask
-flask_sqlalchemy==3.1.1
-line-bot-sdk==3.4.0
-APScheduler
-gunicorn
+Flask==2.3.3
+Flask-SQLAlchemy==3.1.1
+gunicorn==21.2.0
+line-bot-sdk==3.1.0
+APScheduler==3.10.4
+psycopg2-binary==2.9.9
+python-dotenv==1.0.1
