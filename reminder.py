@@ -1,7 +1,6 @@
-# ✅ reminder.py：排程器每分鐘檢查提醒時間
 from apscheduler.schedulers.background import BackgroundScheduler
 from datetime import datetime
-from models import Session, Task
+from models import SessionLocal, Task
 from linebot.v3.messaging import Configuration, MessagingApi, ApiClient
 from linebot.v3.messaging.models import TextMessage, PushMessageRequest
 import os
@@ -19,7 +18,7 @@ def check_reminders():
     current_time = now.strftime("%H:%M")
     print(f"[Scheduler] 現在時間是 {current_time}，正在檢查提醒...")
 
-    session = Session()
+    session = SessionLocal()
     tasks = session.query(Task).filter_by(time=current_time).all()
 
     if not tasks:
