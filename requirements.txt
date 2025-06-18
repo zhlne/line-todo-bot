@@ -2,4 +2,5 @@ flask
 gunicorn
 sqlalchemy
 apscheduler
+pytz
 line-bot-sdk

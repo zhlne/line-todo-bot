@@ -1,5 +1,6 @@
 from apscheduler.schedulers.background import BackgroundScheduler
 from datetime import datetime
+from pytz import timezone
 from models import Session, Task
 from linebot.v3.messaging import MessagingApi, Configuration, ApiClient
 from linebot.v3.messaging.models import TextMessage, PushMessageRequest
@@ -13,8 +14,9 @@ def get_line_api():
     return MessagingApi(ApiClient(config))
 
 def check_tasks():
-    now = datetime.now().strftime("%H:%M")
-    print(f"[Scheduler] 現在時間是 {now}，正在檢查提醒...")
+    tz = timezone('Asia/Taipei')
+    now = datetime.now(tz).strftime("%H:%M")
+    print(f"[Scheduler] 現在台灣時間是 {now}，正在檢查提醒...")
     session = Session()
     tasks = session.query(Task).filter_by(time=now).all()
     session.close()
@@ -41,6 +43,3 @@ def start_scheduler():
     scheduler = BackgroundScheduler()
     scheduler.add_job(check_tasks, 'interval', minutes=1)
     scheduler.start()
-
-
-
