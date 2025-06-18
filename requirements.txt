@@ -4,3 +4,4 @@ sqlalchemy
 apscheduler
 pytz
 line-bot-sdk
+psycopg2-binary
