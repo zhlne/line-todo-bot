@@ -1,5 +1,5 @@
 flask
 gunicorn
 sqlalchemy
-line-bot-sdk
 apscheduler
+line-bot-sdk
