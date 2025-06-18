@@ -8,13 +8,16 @@ import re
 from models import Task, Session, init_db
 from reminder import start_scheduler
 
-# 讀取環境變數
+print("[🚀 app.py 啟動]")
+
+# 環境變數
 CHANNEL_SECRET = os.environ.get("LINE_CHANNEL_SECRET")
 CHANNEL_ACCESS_TOKEN = os.environ.get("LINE_CHANNEL_ACCESS_TOKEN")
 
 if CHANNEL_SECRET is None or CHANNEL_ACCESS_TOKEN is None:
-    raise ValueError("❌ 請設定 LINE_CHANNEL_SECRET 和 LINE_CHANNEL_ACCESS_TOKEN 環境變數")
+    raise ValueError("❌ 請設定 LINE_CHANNEL_SECRET 和 LINE_CHANNEL_ACCESS_TOKEN")
 
+# 初始化應用
 app = Flask(__name__)
 handler = WebhookHandler(CHANNEL_SECRET)
 config = Configuration(access_token=CHANNEL_ACCESS_TOKEN)
@@ -23,7 +26,7 @@ line_bot_api = MessagingApi(ApiClient(config))
 # 初始化資料庫
 init_db()
 
-# 啟動定時提醒器（Render 需要這樣做）
+# 啟動提醒排程器
 start_scheduler()
 
 @app.route('/')
@@ -48,7 +51,7 @@ def handle_message(event):
     user_id = event.source.user_id
     msg = event.message.text.strip()
     session = Session()
-    reply = "🤖 指令錯誤，請使用：\n🟢 新增 事項 時間\n🔍 查詢\n🗑️ 刪除 事項"
+    reply = "🤖 請輸入：\n🟢 新增 事項 時間\n🔍 查詢\n🗑️ 刪除 事項"
 
     try:
         if msg.startswith("新增"):
@@ -60,7 +63,7 @@ def handle_message(event):
                 session.commit()
                 reply = f"✅ 已新增：{content}，時間：{time_str}"
             else:
-                reply = "⚠️ 格式錯誤，請用：新增 任務 時間（例如：新增 洗衣服 21:30）"
+                reply = "⚠️ 格式錯誤，請用：新增 任務 時間（例如：新增 吃飯 21:30）"
 
         elif msg == "查詢":
             tasks = session.query(Task).filter_by(user_id=user_id).all()
@@ -69,7 +72,7 @@ def handle_message(event):
                 for t in tasks:
                     reply += f"- {t.content} @ {t.time}\n"
             else:
-                reply = "📭 目前沒有代辦事項"
+                reply = "📭 沒有代辦事項"
 
         elif msg.startswith("刪除"):
             to_delete = msg.replace("刪除", "").strip()
@@ -79,7 +82,7 @@ def handle_message(event):
                 session.commit()
                 reply = f"🗑️ 已刪除：{to_delete}"
             else:
-                reply = f"⚠️ 沒有找到「{to_delete}」這個代辦事項"
+                reply = f"⚠️ 沒找到「{to_delete}」"
 
     except Exception as e:
         reply = f"❌ 發生錯誤：{e}"
@@ -95,3 +98,4 @@ def handle_message(event):
         )
     except Exception as e:
         print(f"[ReplyMessage Error] {e}")
+
