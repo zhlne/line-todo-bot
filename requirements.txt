@@ -1,8 +1,7 @@
-Flask
-gunicorn
-line-bot-sdk==3.5.0
-SQLAlchemy
 psycopg2-binary
-APScheduler
 pytz
+Flask
 flask_sqlalchemy==3.1.1
+line-bot-sdk==3.4.0
+APScheduler
+gunicorn
