@@ -57,28 +57,41 @@ def handle_message(event):
             reply = f"❌ 新增失敗：{str(e)}"
 
     elif text == "查詢":
-        tasks = Task.query.filter_by(user_id=user_id).all()
+        tasks = Task.query.filter_by(user_id=user_id).order_by(Task.id).all()
         if tasks:
-            reply = "📋 你的提醒：\n" + "\n".join([f"{t.time} {t.content}" for t in tasks])
+            reply_lines = ["📋 你的提醒："]
+            for i, t in enumerate(tasks, start=1):
+                reply_lines.append(f"{i}. {t.time} {t.content}")
+            reply = "\n".join(reply_lines)
         else:
             reply = "🔍 查無提醒事項"
 
     elif text.startswith("刪除 "):
-        keyword = text[3:]
-        task = Task.query.filter_by(user_id=user_id, content=keyword).first()
-        if task:
-            db.session.delete(task)
-            db.session.commit()
-            reply = f"🗑️ 已刪除提醒：{keyword}"
+        arg = text[3:].strip()
+        tasks = Task.query.filter_by(user_id=user_id).order_by(Task.id).all()
+
+        if arg.isdigit():
+            index = int(arg) - 1
+            if 0 <= index < len(tasks):
+                task_to_delete = tasks[index]
+                db.session.delete(task_to_delete)
+                db.session.commit()
+                reply = f"🗑️ 已刪除提醒：{task_to_delete.time} {task_to_delete.content}"
+            else:
+                reply = f"❌ 無此編號提醒：{arg}"
         else:
-            reply = f"❌ 查無提醒：{keyword}"
+            reply = f"❌ 無效刪除指令，請輸入：刪除 編號"
 
     else:
-        reply = "請輸入以下指令：\n1️⃣ 新增 HH:MM 提醒內容\n2️⃣ 查詢\n3️⃣ 刪除 提醒內容"
+        reply = "請輸入以下指令：\n1️⃣ 新增 HH:MM 提醒內容\n2️⃣ 查詢\n3️⃣ 刪除 編號"
 
     line_bot_api.reply_message(
-        ReplyMessageRequest(reply_token=event.reply_token, messages=[TextMessage(text=reply)])
+        ReplyMessageRequest(
+            reply_token=event.reply_token,
+            messages=[TextMessage(text=reply)]
+        )
     )
+
 
 if __name__ == "__main__":
     scheduler.start()
