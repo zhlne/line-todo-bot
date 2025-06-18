@@ -9,30 +9,25 @@ from linebot.v3.messaging import Configuration, ApiClient, MessagingApi
 from linebot.v3.messaging.models import TextMessage, ReplyMessageRequest
 from linebot.v3.webhooks import TextMessageContent
 
-# 讀取環境變數
-CHANNEL_SECRET = os.getenv("CHANNEL_SECRET")
-CHANNEL_ACCESS_TOKEN = os.getenv("CHANNEL_ACCESS_TOKEN")
-DATABASE_URL = os.getenv("DATABASE_URL")
+# 環境變數讀取
+CHANNEL_SECRET = os.environ.get("CHANNEL_SECRET")
+CHANNEL_ACCESS_TOKEN = os.environ.get("CHANNEL_ACCESS_TOKEN")
+DATABASE_URL = os.environ.get("DATABASE_URL")
 
 if not CHANNEL_SECRET or not CHANNEL_ACCESS_TOKEN:
     raise ValueError("❌ 必須設定 CHANNEL_SECRET 和 CHANNEL_ACCESS_TOKEN")
 
-# 初始化 Flask 應用
 app = Flask(__name__)
 app.config["SQLALCHEMY_DATABASE_URI"] = DATABASE_URL
 app.config["SQLALCHEMY_TRACK_MODIFICATIONS"] = False
 db.init_app(app)
 
-# 啟動 APScheduler
 scheduler.init_app(app)
 scheduler.start()
-print("✅ APScheduler 已啟動")
 
-# 建立資料表
 with app.app_context():
     db.create_all()
 
-# LINE bot 設定
 handler = WebhookHandler(CHANNEL_SECRET)
 configuration = Configuration(access_token=CHANNEL_ACCESS_TOKEN)
 

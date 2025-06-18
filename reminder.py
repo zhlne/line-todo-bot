@@ -1,7 +1,10 @@
-from fflask_apscheduler import APScheduler
+from flask_apscheduler import APScheduler
 from flask import current_app
 from models import db, Task
 from datetime import datetime
+import os
+from linebot.v3.messaging import Configuration, ApiClient, MessagingApi
+from linebot.v3.messaging.models import TextMessage, PushMessageRequest
 
 scheduler = APScheduler()
 
@@ -11,5 +14,19 @@ def check_reminders():
     with app.app_context():
         now = datetime.now().strftime("%H:%M")
         tasks = Task.query.filter_by(time=now).all()
+
+        CHANNEL_ACCESS_TOKEN = os.environ.get("CHANNEL_ACCESS_TOKEN")
+        configuration = Configuration(access_token=CHANNEL_ACCESS_TOKEN)
+
         for task in tasks:
             print(f"[提醒] {task.time} - {task.content}（用戶：{task.user_id}）")
+
+            with ApiClient(configuration) as api_client:
+                line_bot_api = MessagingApi(api_client)
+                line_bot_api.push_message(
+                    PushMessageRequest(
+                        to=task.user_id,
+                        messages=[TextMessage(text=f"⏰ 提醒你：{task.time} {task.content}")]
+                    )
+                )
+
