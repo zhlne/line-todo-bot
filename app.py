@@ -6,27 +6,27 @@ from linebot.v3.webhooks import MessageEvent, TextMessageContent
 import os
 import re
 from models import Task, Session, init_db
+from reminder import start_scheduler
 
-# 讀取環境變數（Render 上設定）
+# 環境變數設定（從 Render 讀取）
 CHANNEL_SECRET = os.environ.get("LINE_CHANNEL_SECRET")
 CHANNEL_ACCESS_TOKEN = os.environ.get("LINE_CHANNEL_ACCESS_TOKEN")
 
-# 環境檢查
 if CHANNEL_SECRET is None or CHANNEL_ACCESS_TOKEN is None:
-    raise ValueError("❌ 請先設定 LINE_CHANNEL_SECRET 與 LINE_CHANNEL_ACCESS_TOKEN 環境變數")
+    raise ValueError("❌ 請設定環境變數 LINE_CHANNEL_SECRET 和 LINE_CHANNEL_ACCESS_TOKEN")
 
-# 初始化 Flask 與 LINE SDK
+# 初始化 Flask 應用與 LINE Bot
 app = Flask(__name__)
 handler = WebhookHandler(CHANNEL_SECRET)
 config = Configuration(access_token=CHANNEL_ACCESS_TOKEN)
 line_bot_api = MessagingApi(ApiClient(config))
 
-# 初始化 SQLite 資料庫
+# 初始化資料庫
 init_db()
 
 @app.route('/')
 def home():
-    return "✅ LINE 代辦事項 Bot 運作中！"
+    return "✅ LINE 代辦事項提醒 Bot 正在運作！"
 
 @app.route('/callback', methods=['POST'])
 def callback():
@@ -58,7 +58,7 @@ def handle_message(event):
                 session.commit()
                 reply = f"✅ 已新增：{content}，時間：{time_str}"
             else:
-                reply = "⚠️ 格式錯誤，請用：新增 任務名稱 時間（例如：新增 洗衣服 21:30）"
+                reply = "⚠️ 格式錯誤，請用：新增 任務 時間（例如：新增 洗衣服 21:30）"
 
         elif msg == "查詢":
             tasks = session.query(Task).filter_by(user_id=user_id).all()
@@ -93,3 +93,9 @@ def handle_message(event):
         )
     except Exception as e:
         print(f"[ReplyMessage Error] {e}")
+
+# 啟動 APScheduler 定時提醒
+if __name__ == '__main__':
+    start_scheduler()
+    app.run()
+
