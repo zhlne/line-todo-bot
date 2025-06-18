@@ -6,14 +6,14 @@ from linebot.v3.webhooks import MessageEvent, TextMessageContent
 import os
 import re
 from models import Task, Session, init_db
-from reminder import start_scheduler
+from reminder import start_scheduler  # ✅ 引入提醒排程器
 
-# 環境變數設定（從 Render 讀取）
+# 讀取 Render 的環境變數
 CHANNEL_SECRET = os.environ.get("LINE_CHANNEL_SECRET")
 CHANNEL_ACCESS_TOKEN = os.environ.get("LINE_CHANNEL_ACCESS_TOKEN")
 
 if CHANNEL_SECRET is None or CHANNEL_ACCESS_TOKEN is None:
-    raise ValueError("❌ 請設定環境變數 LINE_CHANNEL_SECRET 和 LINE_CHANNEL_ACCESS_TOKEN")
+    raise ValueError("❌ 請設定 LINE_CHANNEL_SECRET 和 LINE_CHANNEL_ACCESS_TOKEN 環境變數")
 
 # 初始化 Flask 應用與 LINE Bot
 app = Flask(__name__)
@@ -21,8 +21,11 @@ handler = WebhookHandler(CHANNEL_SECRET)
 config = Configuration(access_token=CHANNEL_ACCESS_TOKEN)
 line_bot_api = MessagingApi(ApiClient(config))
 
-# 初始化資料庫
+# 初始化 SQLite 資料庫
 init_db()
+
+# ✅ 在 Render 上也會自動啟動的提醒排程器
+start_scheduler()
 
 @app.route('/')
 def home():
@@ -93,9 +96,3 @@ def handle_message(event):
         )
     except Exception as e:
         print(f"[ReplyMessage Error] {e}")
-
-# 啟動 APScheduler 定時提醒
-if __name__ == '__main__':
-    start_scheduler()
-    app.run()
-
