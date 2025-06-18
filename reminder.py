@@ -1,37 +1,29 @@
+from flask import current_app
 from apscheduler.schedulers.background import BackgroundScheduler
 from datetime import datetime
 from models import db, Task
-from linebot.v3.messaging import MessagingApi, Configuration, ApiClient, TextMessage, PushMessageRequest
+from linebot.v3.messaging import Configuration, ApiClient, MessagingApi, PushMessageRequest, TextMessage
 import os
 
-# 初始化 LINE Bot
-channel_access_token = os.getenv("CHANNEL_ACCESS_TOKEN")
-if not channel_access_token:
-    raise ValueError("❌ 請設定 CHANNEL_ACCESS_TOKEN 環境變數")
+scheduler = BackgroundScheduler()
 
-configuration = Configuration(access_token=channel_access_token)
-line_bot_api = MessagingApi(ApiClient(configuration))
+def check_reminders():
+    with current_app.app_context():
+        now = datetime.now().strftime("%H:%M")
+        tasks = Task.query.filter_by(time=now).all()
 
-def send_reminders():
-    now = datetime.now().strftime("%H:%M")
-    print(f"[Scheduler] 現在時間是 {now}，正在檢查提醒...")
+        if tasks:
+            configuration = Configuration(access_token=os.environ.get("CHANNEL_ACCESS_TOKEN"))
+            with ApiClient(configuration) as api:
+                line_bot_api = MessagingApi(api)
+                for task in tasks:
+                    message = TextMessage(text=f"⏰ 提醒：{task.time} {task.content}")
+                    line_bot_api.push_message(PushMessageRequest(to=task.user_id, messages=[message]))
 
-    with db.engine.connect() as conn:
-        with conn.begin():
-            result = conn.execute(db.select(Task).filter_by(time=now))
-            tasks = result.scalars().all()
+scheduler.add_job(check_reminders, "cron", minute="*")
+scheduler.start()
+print("✅ APScheduler 已啟動")
 
-    for task in tasks:
-        line_bot_api.push_message(
-            PushMessageRequest(
-                to=task.user_id,
-                messages=[TextMessage(text=f"⏰ 提醒事項：{task.content}")]
-            )
-        )
-        print(f"[🔔 已發送] {task.user_id}：{task.content}")
-
-scheduler = BackgroundScheduler(timezone="Asia/Taipei")
-scheduler.add_job(send_reminders, "cron", minute="*")
 
 
 

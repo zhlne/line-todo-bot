@@ -1,43 +1,52 @@
-from flask import Flask, request, abort
-from models import db, Task
-from reminder import scheduler
-from linebot.v3 import WebhookHandler
-from linebot.v3.webhooks import MessageEvent, TextMessageContent
-from linebot.v3.exceptions import InvalidSignatureError
-from linebot.v3.messaging import Configuration, ApiClient, MessagingApi, TextMessage, ReplyMessageRequest
 import os
+from flask import Flask, request
+from flask_sqlalchemy import SQLAlchemy
+from linebot.v3 import WebhookHandler
+from linebot.v3.messaging import (
+    Configuration, ApiClient, MessagingApi, ReplyMessageRequest, TextMessage
+)
+from linebot.v3.webhooks import MessageEvent, TextMessageContent
+from reminder import scheduler
+from models import db, Task
 
+# LINE credentials
+CHANNEL_SECRET = os.environ.get("CHANNEL_SECRET")
+CHANNEL_ACCESS_TOKEN = os.environ.get("CHANNEL_ACCESS_TOKEN")
+DATABASE_URL = os.environ.get("DATABASE_URL")
+
+if not CHANNEL_SECRET or not CHANNEL_ACCESS_TOKEN:
+    raise ValueError("❌ 必須設定 CHANNEL_SECRET 和 CHANNEL_ACCESS_TOKEN")
+
+# Flask app
 app = Flask(__name__)
-app.config["SQLALCHEMY_DATABASE_URI"] = os.environ.get("DATABASE_URL", "").replace("postgres://", "postgresql://", 1)
+app.config["SQLALCHEMY_DATABASE_URI"] = DATABASE_URL
 app.config["SQLALCHEMY_TRACK_MODIFICATIONS"] = False
-
-if not app.config["SQLALCHEMY_DATABASE_URI"]:
-    raise ValueError("❌ 請設定 DATABASE_URL 環境變數")
-
 db.init_app(app)
+
 with app.app_context():
     db.create_all()
 
-# LINE Bot 初始化
-channel_secret = os.getenv("CHANNEL_SECRET")
-channel_access_token = os.getenv("CHANNEL_ACCESS_TOKEN")
-if not channel_secret or not channel_access_token:
-    raise ValueError("❌ 必須設定 CHANNEL_SECRET 和 CHANNEL_ACCESS_TOKEN")
+# LINE API 設定
+handler = WebhookHandler(CHANNEL_SECRET)
+configuration = Configuration(access_token=CHANNEL_ACCESS_TOKEN)
 
-handler = WebhookHandler(channel_secret)
-configuration = Configuration(access_token=channel_access_token)
-line_bot_api = MessagingApi(ApiClient(configuration))
+# 觸發首頁確認
+@app.route("/")
+def home():
+    return "Line Reminder Bot is running!"
 
+# LINE Webhook Callback
 @app.route("/callback", methods=["POST"])
 def callback():
-    signature = request.headers["X-Line-Signature"]
+    signature = request.headers.get("X-Line-Signature")
     body = request.get_data(as_text=True)
     try:
         handler.handle(body, signature)
-    except InvalidSignatureError:
-        abort(400)
+    except Exception as e:
+        print(f"❌ Webhook error: {e}")
     return "OK"
 
+# 處理文字訊息事件
 @handler.add(MessageEvent, message=TextMessageContent)
 def handle_message(event):
     text = event.message.text.strip()
@@ -56,29 +65,39 @@ def handle_message(event):
             reply = f"❌ 新增失敗：{str(e)}"
 
     elif text == "查詢":
-        tasks = Task.query.filter_by(user_id=user_id).all()
+        tasks = Task.query.filter_by(user_id=user_id).order_by(Task.time.asc()).all()
         if tasks:
-            reply = "📋 你的提醒：\n" + "\n".join([f"{t.time} {t.content}" for t in tasks])
+            reply = "📋 你的提醒：\n" + "\n".join(
+                [f"{i+1}. {t.time} {t.content}" for i, t in enumerate(tasks)]
+            )
         else:
             reply = "🔍 查無提醒事項"
 
     elif text.startswith("刪除 "):
-        keyword = text[3:]
-        task = Task.query.filter_by(user_id=user_id, content=keyword).first()
-        if task:
-            db.session.delete(task)
-            db.session.commit()
-            reply = f"🗑️ 已刪除提醒：{keyword}"
-        else:
-            reply = f"❌ 查無提醒：{keyword}"
+        try:
+            index = int(text[3:]) - 1
+            tasks = Task.query.filter_by(user_id=user_id).order_by(Task.time.asc()).all()
+            if 0 <= index < len(tasks):
+                db.session.delete(tasks[index])
+                db.session.commit()
+                reply = f"🗑️ 已刪除提醒：{index+1}. {tasks[index].time} {tasks[index].content}"
+            else:
+                reply = "❌ 無效編號，請重新確認。"
+        except Exception as e:
+            reply = f"❌ 刪除失敗：{str(e)}"
 
     else:
-        reply = "請輸入以下指令：\n1️⃣ 新增 HH:MM 提醒內容\n2️⃣ 查詢\n3️⃣ 刪除 提醒內容"
+        reply = "請輸入以下指令：\n" \
+                "🆕 新增 HH:MM 提醒內容\n" \
+                "📋 查詢\n" \
+                "🗑️ 刪除 編號（查詢後的編號）"
 
-    line_bot_api.reply_message(
-        ReplyMessageRequest(reply_token=event.reply_token, messages=[TextMessage(text=reply)])
-    )
+    with ApiClient(configuration) as api:
+        line_bot_api = MessagingApi(api)
+        line_bot_api.reply_message(
+            ReplyMessageRequest(
+                reply_token=event.reply_token,
+                messages=[TextMessage(text=reply)]
+            )
+        )
 
-if __name__ == "__main__":
-    scheduler.start()
-    app.run(host="0.0.0.0", port=10000)
