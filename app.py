@@ -69,6 +69,16 @@ def handle_message(event):
             else:
                 reply = "📭 目前沒有代辦事項"
 
+        elif msg.startswith("刪除"):
+            to_delete = msg.replace("刪除", "").strip()
+            task = session.query(Task).filter_by(user_id=user_id, content=to_delete).first()
+            if task:
+                session.delete(task)
+                session.commit()
+                reply = f"🗑️ 已刪除：{to_delete}"
+            else:
+                reply = f"⚠️ 沒有找到「{to_delete}」這個代辦事項"
+
     except Exception as e:
         reply = f"❌ 發生錯誤：{e}"
     finally:
@@ -83,7 +93,3 @@ def handle_message(event):
         )
     except Exception as e:
         print(f"[ReplyMessage Error] {e}")
-
-
-
-
