@@ -2,14 +2,14 @@ import os
 from flask import Flask, request, abort
 from flask_sqlalchemy import SQLAlchemy
 from models import db, Task
-from reminder import scheduler
+from reminder import scheduler, check_reminders
 from datetime import datetime
 from linebot.v3.webhook import WebhookHandler, MessageEvent
 from linebot.v3.messaging import Configuration, ApiClient, MessagingApi
 from linebot.v3.messaging.models import TextMessage, ReplyMessageRequest
 from linebot.v3.webhooks import TextMessageContent
 
-# 環境變數讀取
+# 環境變數
 CHANNEL_SECRET = os.environ.get("CHANNEL_SECRET")
 CHANNEL_ACCESS_TOKEN = os.environ.get("CHANNEL_ACCESS_TOKEN")
 DATABASE_URL = os.environ.get("DATABASE_URL")
@@ -22,8 +22,17 @@ app.config["SQLALCHEMY_DATABASE_URI"] = DATABASE_URL
 app.config["SQLALCHEMY_TRACK_MODIFICATIONS"] = False
 db.init_app(app)
 
+# 初始化 APScheduler
 scheduler.init_app(app)
 scheduler.start()
+
+# 加入提醒任務（避免使用 current_app）
+scheduler.add_job(
+    id="check_reminders",
+    func=lambda: check_reminders(app),
+    trigger="cron",
+    minute="*"
+)
 
 with app.app_context():
     db.create_all()
