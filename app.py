@@ -12,7 +12,6 @@ from reminder import start_scheduler
 
 app = Flask(__name__)
 
-# ✅ 設定 LINE Bot 金鑰
 CHANNEL_SECRET = os.environ.get("CHANNEL_SECRET")
 CHANNEL_ACCESS_TOKEN = os.environ.get("CHANNEL_ACCESS_TOKEN")
 if not CHANNEL_SECRET or not CHANNEL_ACCESS_TOKEN:
@@ -21,7 +20,6 @@ if not CHANNEL_SECRET or not CHANNEL_ACCESS_TOKEN:
 handler = WebhookHandler(CHANNEL_SECRET)
 configuration = Configuration(access_token=CHANNEL_ACCESS_TOKEN)
 
-# ✅ 初始化資料庫與排程器
 init_db()
 start_scheduler()
 
@@ -41,7 +39,6 @@ def callback():
 
     return "OK"
 
-# ✅ 處理使用者訊息
 @handler.add(MessageEvent, message=TextMessageContent)
 def handle_message(event):
     user_id = event.source.user_id
@@ -75,3 +72,4 @@ def handle_message(event):
 
 if __name__ == "__main__":
     app.run(host="0.0.0.0", port=int(os.environ.get("PORT", 10000)))
+

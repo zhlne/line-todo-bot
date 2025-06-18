@@ -8,11 +8,9 @@ import pytz
 
 scheduler = BackgroundScheduler(timezone="Asia/Taipei")
 
-# ✅ 設定 LINE Bot 金鑰
 CHANNEL_ACCESS_TOKEN = os.environ.get("CHANNEL_ACCESS_TOKEN")
 configuration = Configuration(access_token=CHANNEL_ACCESS_TOKEN)
 
-# ✅ 定時執行的提醒任務
 def check_reminders():
     now = datetime.now(pytz.timezone("Asia/Taipei"))
     current_time = now.strftime("%H:%M")
@@ -38,8 +36,8 @@ def check_reminders():
                     print("[❌ LINE 推播失敗]", e)
     session.close()
 
-# ✅ 啟動排程器
 def start_scheduler():
     scheduler.add_job(check_reminders, 'cron', minute='*')
     scheduler.start()
     print("[✅ APScheduler 啟動中]")
+
