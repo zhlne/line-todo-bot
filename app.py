@@ -7,17 +7,15 @@ import os
 import re
 from models import Task, Session, init_db
 
-# 環境變數
+# 讀取環境變數
 CHANNEL_SECRET = os.environ.get("LINE_CHANNEL_SECRET")
 CHANNEL_ACCESS_TOKEN = os.environ.get("LINE_CHANNEL_ACCESS_TOKEN")
 
+# 初始化 Flask、LINE API、資料庫
 app = Flask(__name__)
 handler = WebhookHandler(CHANNEL_SECRET)
-
 config = Configuration(access_token=CHANNEL_ACCESS_TOKEN)
 line_bot_api = MessagingApi(ApiClient(config))
-
-# 初始化資料庫
 init_db()
 
 @app.route('/')
@@ -41,30 +39,41 @@ def callback():
 def handle_message(event):
     user_id = event.source.user_id
     msg = event.message.text.strip()
+    session = Session()
 
     if msg.startswith("新增"):
         match = re.match(r"新增\s+(.+)\s+(\d{2}:\d{2})", msg)
         if match:
             content, time_str = match.groups()
-            session = Session()
             task = Task(user_id=user_id, content=content, time=time_str)
             session.add(task)
             session.commit()
-            session.close()
             reply = f"✅ 已新增：{content}，時間：{time_str}"
         else:
             reply = "⚠️ 格式錯誤，請用：新增 事項 時間（例如：新增 吃飯 18:30）"
+
+    elif msg == "查詢":
+        tasks = session.query(Task).filter_by(user_id=user_id).all()
+        if tasks:
+            reply = "🗒️ 你的代辦事項：\n"
+            for t in tasks:
+                reply += f"- {t.content} @ {t.time}\n"
+        else:
+            reply = "📭 目前沒有代辦事項"
+
     else:
         reply = "請輸入：\n🟢 新增 事項 時間\n🔍 查詢\n🗑️ 刪除 事項"
 
+    session.close()
     line_bot_api.reply_message(
         ReplyMessageRequest(
             reply_token=event.reply_token,
-            messages=[TextMessage(text=reply)]
+            messages=[TextMessage(text=reply])
         )
     )
 
 if __name__ == "__main__":
     app.run()
+
 
 
