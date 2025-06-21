@@ -92,12 +92,23 @@ def handle_message(event):
         else:
             reply = f"❌ 查無提醒：{keyword}"
 
+    elif text == "刪除全部":
+        tasks = Task.query.filter_by(user_id=user_id).all()
+        if tasks:
+            for t in tasks:
+                db.session.delete(t)
+            db.session.commit()
+            reply = "🗑️ 已刪除你所有的提醒資料"
+        else:
+            reply = "❌ 沒有可刪除的提醒資料"
+
     else:
         reply = (
             "請輸入以下指令：\n"
             "1️⃣ 新增 HH:MM 提醒內容\n"
             "2️⃣ 查詢\n"
-            "3️⃣ 刪除 提醒內容"
+            "3️⃣ 刪除 提醒內容\n"
+            "4️⃣ 刪除全部"
         )
 
     with ApiClient(configuration) as api:
